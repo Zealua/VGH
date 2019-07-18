@@ -35,11 +35,16 @@
 #include "stm32f4xx.h"
 #include "stm32f4xx_it.h"
 
-/* USER CODE BEGIN 0 */
 
+/* USER CODE BEGIN 0 */
+extern uint8_t it;
+extern char getUart[15];
+HAL_StatusTypeDef UART_Receive_IT(UART_HandleTypeDef *huart);
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern UART_HandleTypeDef huart4;
+extern UART_HandleTypeDef huart6;
 
 /******************************************************************************/
 /*            Cortex-M4 Processor Interruption and Exception Handlers         */ 
@@ -191,7 +196,92 @@ void SysTick_Handler(void)
 /* please refer to the startup file (startup_stm32f4xx.s).                    */
 /******************************************************************************/
 
-/* USER CODE BEGIN 1 */
+/**
+* @brief This function handles UART4 global interrupt.
+*/
+void UART4_IRQHandler(void)
+{
+  /* USER CODE BEGIN UART4_IRQn 0 */
 
+  /* USER CODE END UART4_IRQn 0 */
+  HAL_UART_IRQHandler(&huart4);
+  /* USER CODE BEGIN UART4_IRQn 1 */
+
+  /* USER CODE END UART4_IRQn 1 */
+}
+
+/**
+* @brief This function handles USART6 global interrupt.
+*/
+void USART6_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART6_IRQn 0 */
+  getUart[it] = (char)huart6.Instance->DR;
+  UART_Receive_IT(&huart6);
+  it++;
+  if(it>14){it=0;}
+  /* USER CODE END USART6_IRQn 0 */
+  HAL_UART_IRQHandler(&huart6);
+  /* USER CODE BEGIN USART6_IRQn 1 */
+
+  /* USER CODE END USART6_IRQn 1 */
+}
+
+/* USER CODE BEGIN 1 */
+HAL_StatusTypeDef UART_Receive_IT(UART_HandleTypeDef *huart)
+{
+  uint16_t* tmp;
+  
+  /* Check that a Rx process is ongoing */
+  if(huart->RxState == HAL_UART_STATE_BUSY_RX) 
+  {
+    if(huart->Init.WordLength == UART_WORDLENGTH_9B)
+    {
+      tmp = (uint16_t*) huart->pRxBuffPtr;
+      if(huart->Init.Parity == UART_PARITY_NONE)
+      {
+        *tmp = (uint16_t)(huart->Instance->DR & (uint16_t)0x01FF);
+        huart->pRxBuffPtr += 2U;
+      }
+      else
+      {
+        *tmp = (uint16_t)(huart->Instance->DR & (uint16_t)0x00FF);
+        huart->pRxBuffPtr += 1U;
+      }
+    }
+    else
+    {
+      if(huart->Init.Parity == UART_PARITY_NONE)
+      {
+        *huart->pRxBuffPtr++ = (uint8_t)(huart->Instance->DR & (uint8_t)0x00FF);
+      }
+      else
+      {
+        *huart->pRxBuffPtr++ = (uint8_t)(huart->Instance->DR & (uint8_t)0x007F);
+      }
+    }
+
+    if(--huart->RxXferCount == 0U)
+    {
+      /* Disable the UART Parity Error Interrupt and RXNE interrupt*/
+      CLEAR_BIT(huart->Instance->CR1, (USART_CR1_RXNEIE | USART_CR1_PEIE));
+
+      /* Disable the UART Error Interrupt: (Frame error, noise error, overrun error) */
+      CLEAR_BIT(huart->Instance->CR3, USART_CR3_EIE);
+
+      /* Rx process is completed, restore huart->RxState to Ready */
+      huart->RxState = HAL_UART_STATE_READY;
+     
+      HAL_UART_RxCpltCallback(huart);
+
+      return HAL_OK;
+    }
+    return HAL_OK;
+  }
+  else
+  {
+    return HAL_BUSY;
+  }
+}
 /* USER CODE END 1 */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

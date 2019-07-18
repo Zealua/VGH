@@ -6,6 +6,7 @@
 
 	// PB3 - sck (output)
 	// PB4 - data (input)
+
 #define sck_PIN GPIO_PIN_3
 #define sck_PORT GPIOB
 
@@ -17,12 +18,11 @@
 //#include "Variables.c"
 
 
-uint32_t nyl=0;
-
 /* Private variables ---------------------------------------------------------*/
 void scalesCalibration(void);
-uint32_t getWeight(void);
+int32_t getWeight(void);
 uint32_t GetWeight(void);
+int32_t getWeightShot(void);
 
 #endif /* __HX711_H__ */
 

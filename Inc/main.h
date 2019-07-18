@@ -58,7 +58,7 @@
 
 /* USER CODE BEGIN Private defines */
 
-//#include "HX711.h"
+#include "scanman.h"
     
 //#include "Variables.c"
 /* USER CODE END Private defines */

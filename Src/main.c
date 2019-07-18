@@ -41,12 +41,16 @@
 #include "stm32f4xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-#include "stm32f4_discovery_lcd.h"
 //#include "Variables.c"
+uint8_t pData[4]={0};
+
+//char getUart[15]={0};
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+
+I2C_HandleTypeDef hi2c1;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart6;
@@ -57,19 +61,6 @@ SRAM_HandleTypeDef hsram1;
 /* Private variables ---------------------------------------------------------*/
  
 
-int i=0;
-
-char part[65]={0};
-char StrLCD[65]={0};  
-int k=430;
-uint32_t w=0;
-uint8_t first=1;
-uint32_t data_buffer[3]={0};
-
-uint32_t RAM_LCD_Read=0;
-
-#define MESSAGE1   "     STM32F4xx      " 
-#define MESSAGE3   "     ZAKAZ.UA      " 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,6 +70,7 @@ static void MX_FSMC_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_UART4_Init(void);
 static void MX_USART6_UART_Init(void);
+static void MX_I2C1_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -88,27 +80,7 @@ static void MX_USART6_UART_Init(void);
 /* USER CODE BEGIN 0 */
 
 
-void getWHL(void){
-// US30 --==ON==--
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_11, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
 
-  HAL_Delay(1000);
-                
-  HAL_ADCEx_InjectedStart(&hadc1);
-  HAL_ADCEx_InjectedPollForConversion(&hadc1,20);
-  data_buffer[0]=100+HAL_ADCEx_InjectedGetValue(&hadc1, ADC_INJECTED_RANK_1)/1.35;        //read ADC value 
-  data_buffer[1]=100+HAL_ADCEx_InjectedGetValue(&hadc1, ADC_INJECTED_RANK_2)/1.35;
-  data_buffer[2]=100+HAL_ADCEx_InjectedGetValue(&hadc1, ADC_INJECTED_RANK_3)/1.35;
-  HAL_ADCEx_InjectedStop(&hadc1);  
-  HAL_Delay(100);
-//  US30   --==OFF==--      
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_11, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-
-}
 
 /* USER CODE END 0 */
 
@@ -117,7 +89,7 @@ void getWHL(void){
   *
   * @retval None
   */
-int main(void)
+ int main(void)
 {
   /* USER CODE BEGIN 1 */
 
@@ -145,79 +117,18 @@ int main(void)
   MX_ADC1_Init();
   MX_UART4_Init();
   MX_USART6_UART_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13|GPIO_PIN_3, GPIO_PIN_SET);
-STM32f4_Discovery_LCD_Init();
-RAM_LCD_Read=LCD_ReadReg(0x00);
-LCD_Clear(LCD_COLOR_BLUE);
-LCD_SetBackColor(LCD_COLOR_BLUE);
-  LCD_SetTextColor(LCD_COLOR_WHITE);
-  LCD_DisplayStringLine(LINE(3), (uint8_t *)MESSAGE1);
-HAL_Delay(1000);
 
-  LCD_RGB_Test();
-HAL_Delay(1000);
-LCD_Clear(LCD_COLOR_GREEN);
-LCD_SetBackColor(LCD_COLOR_GREEN);
-LCD_SetTextColor(LCD_COLOR_BLUE);
-LCD_DisplayStringLine(LINE(3), (uint8_t *)MESSAGE3);
-
-  
-    sprintf(part,"--------------------------\r\n");          
-    HAL_UART_Transmit(&huart6, (uint8_t*) part, 28,80);
-    sprintf(part,"====================\r\n");          
-    HAL_UART_Transmit(&huart6, (uint8_t*) part, 22,80);
-    sprintf(part,"__-==START WORK==-__\r\n");          
-    HAL_UART_Transmit(&huart6, (uint8_t*) part, 22,80);	
-    sprintf(part,"====================\r\n");          
-    HAL_UART_Transmit(&huart6, (uint8_t*) part, 22,80);
-    sprintf(part,"--------------------------\r\n\r\n");          
-    HAL_UART_Transmit(&huart6, (uint8_t*) part, 30,80);
-    scalesCalibration();
-
-
+  HAL_I2C_Master_Receive(&hi2c1, 0x82, pData, 4, (uint32_t)10000);
+  ScanMan(huart6,hadc1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-// ------------___wait_push_SB3__-----------------
-    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) < 1) {
-	HAL_Delay(45);
-	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) < 1) {
-            scalesCalibration();
-    }}
-	   
-// ------------___wait_push_SB2__-----------------
-    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_15) < 1) {
-	HAL_Delay(45);
-	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_15) < 1) {
-            
-          w=getWeight();
-          getWHL();
-          
-          sprintf(part,"Weight: %d;\r\n Length: %d;\r\n Width: %d;\r\n Height: %d\r\n\r\n",w,data_buffer[0],data_buffer[1],data_buffer[2]);	
-          HAL_UART_Transmit(&huart6, (uint8_t*) part, 55,80);	
-  LCD_Clear(LCD_COLOR_GREEN);
-          sprintf(StrLCD,"Product # 00004587");	
-          LCD_DisplayStringLine(LINE(1), (uint8_t *)StrLCD);
-           sprintf(StrLCD,"Weight: %d;",w);	
-          LCD_DisplayStringLine(LINE(3), (uint8_t *)StrLCD);
-          sprintf(StrLCD,"Length: %d;",data_buffer[0]);
-          LCD_DisplayStringLine(LINE(4), (uint8_t *)StrLCD);	
-          sprintf(StrLCD,"Width: %d;",data_buffer[1]);
-          LCD_DisplayStringLine(LINE(5), (uint8_t *)StrLCD);	
-          sprintf(StrLCD,"Height: %d.",data_buffer[2]);
-          LCD_DisplayStringLine(LINE(6), (uint8_t *)StrLCD);	
-          
-        w=0;
-    }}
-//		
-//--------------------------------------------------------------------------------
-//===========================___END___============================================
-//--------------------------------------------------------------------------------
+
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
@@ -356,6 +267,26 @@ static void MX_ADC1_Init(void)
 
 }
 
+/* I2C1 init function */
+static void MX_I2C1_Init(void)
+{
+
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 /* UART4 init function */
 static void MX_UART4_Init(void)
 {
@@ -410,18 +341,21 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_3, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
 
   /*Configure GPIO pin : PE4 */
   GPIO_InitStruct.Pin = GPIO_PIN_4;
@@ -429,6 +363,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB0 PB3 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PD11 PD12 PD13 PD3 */
   GPIO_InitStruct.Pin = GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_3;
@@ -440,15 +381,8 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pins : PA8 PA15 */
   GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PB3 */
-  GPIO_InitStruct.Pin = GPIO_PIN_3;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB4 */
   GPIO_InitStruct.Pin = GPIO_PIN_4;

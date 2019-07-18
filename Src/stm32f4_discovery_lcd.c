@@ -290,6 +290,13 @@ void STM32f4_Discovery_LCD_Init(void)
 	
   /* Configure the FSMC Parallel interface */
 
+//  while(1){
+//  HAL_GPIO_WritePin(LCD_RST_PORT, LCD_RST_PIN, GPIO_PIN_SET);	
+//  _delay_(5);   
+//  HAL_GPIO_WritePin(LCD_RST_PORT, LCD_RST_PIN, GPIO_PIN_RESET);	
+//  _delay_(5); 
+//  }
+  
   HAL_GPIO_WritePin(LCD_RST_PORT, LCD_RST_PIN, GPIO_PIN_SET);	
   _delay_(5); 
 	
@@ -1266,7 +1273,7 @@ void LCD_FillPolyLine(pPoint Points, uint16_t PointCount)
 static void delay(__IO uint32_t nCount)
 {
   __IO uint32_t index = 0; 
-  for(index = (10000 * nCount); index != 0; index--)
+  for(index = (17 * nCount); index != 0; index--) //10000
   {
   }
 }
